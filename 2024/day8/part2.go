@@ -23,6 +23,10 @@ func (p Point) dist(other Point) Point {
 	return Point{p.X - other.X, p.Y - other.Y}
 }
 
+func (p Point) lte(other Point) bool {
+	return p.X <= other.X && p.Y <= other.Y
+}
+
 func check(e error) {
 	if e != nil {
 		panic(e)
@@ -84,8 +88,12 @@ func maxBy(pointsMap map[Point]string, mapper func(Point) int) int {
 	return max
 }
 
-func addIfInBounds(data map[Point]bool, maxRow, maxCol int, pt Point) {
-	if pt.X <= maxRow && pt.Y <= maxCol && pt.X >= 0 && pt.Y >= 0 {
+func inBounds(pt, max, origin Point) bool {
+	return pt.lte(max) && origin.lte(pt)
+}
+
+func tryAdd(data map[Point]bool, pt, max, origin Point) {
+	if inBounds(pt, max, origin) {
 		data[pt] = true
 	}
 }
@@ -96,14 +104,20 @@ func main() {
 	maxRow := maxBy(data, func(pt Point) int { return pt.X })
 	maxCol := maxBy(data, func(pt Point) int { return pt.Y })
 	antinodes := make(map[Point]bool)
+	max, origin := Point{maxRow, maxCol}, Point{0, 0}
 
 	for _, points := range antennas {
 		for _, pt := range points {
 			for _, other := range getOthers(pt, points) {
-				antinode1 := pt.add(pt.dist(other))
-				antinode2 := other.add(other.dist(pt))
-				addIfInBounds(antinodes, maxRow, maxCol, antinode1)
-				addIfInBounds(antinodes, maxRow, maxCol, antinode2)
+				tryAdd(antinodes, pt, max, origin)
+				tryAdd(antinodes, other, max, origin)
+				d1, d2 := pt.dist(other), other.dist(pt)
+				a1, a2 := pt.add(d1), other.add(d2)
+
+				for ; inBounds(a1, max, origin) || inBounds(a2, max, origin); a1, a2 = a1.add(d1), a2.add(d2) {
+					tryAdd(antinodes, a1, max, origin)
+					tryAdd(antinodes, a2, max, origin)
+				}
 			}
 		}
 	}
