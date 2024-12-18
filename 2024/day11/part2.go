@@ -6,9 +6,14 @@ import (
 	"math"
 	"os"
 	"regexp"
-	"slices"
 	"strconv"
 )
+
+type Key struct {
+	Round int64
+	Left  int64
+	Right int64
+}
 
 func check(e error) {
 	if e != nil {
@@ -52,21 +57,38 @@ func calculateSides(val int64) (int64, int64) {
 	return left, right
 }
 
-func blink(line []int64) []int64 {
+func lookup(round, left, right int64, cache *map[Key]int64) int64 {
+	k := Key{Left: left, Right: right, Round: round}
+	val, ok := (*cache)[k]
+	if ok {
+		return val
+	}
+	res := blink(round, []int64{left, right}, cache)
+	(*cache)[k] = res
+	return res
+}
+
+func blink(round int64, line []int64, cache *map[Key]int64) int64 {
+	count := int64(len(line) - 1)
+
 	for i := 0; i < len(line); i++ {
-		val := line[i]
-		if val == 0 {
-			line[i] = 1
-		} else if evenDigits(val) {
-			left, right := calculateSides(val)
-			line[i] = left
-			line = slices.Insert(line, i+1, right)
-			i++
-		} else {
-			line[i] *= 2024
+		for n := range round {
+			val := line[i]
+			if val == 0 {
+				line[i] = 1
+			} else if evenDigits(val) {
+				left, right := calculateSides(val)
+				line[i] = left
+				res := lookup(round-(n+1), left, right, cache)
+				count += res
+				break
+			} else {
+				line[i] *= 2024
+			}
 		}
 	}
-	return line
+
+	return count
 }
 
 func main() {
@@ -75,11 +97,9 @@ func main() {
 	numBlinks, err := strconv.ParseInt(os.Args[2], 10, 32)
 	check(err)
 
-	for i := range numBlinks {
-		data = blink(data)
-		x := math.Pow(2, float64(i+1)) / float64(len(data))
-		fmt.Printf("%v: %v / %v \n", i+1, x, len(data))
-	}
+	cache := make(map[Key]int64)
 
-	fmt.Printf("%v\n", len(data))
+	c := blink(numBlinks, data, &cache) + 1
+
+	fmt.Printf("%v\n", c)
 }
